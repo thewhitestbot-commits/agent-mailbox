@@ -1,17 +1,18 @@
 // The one place that talks to the mail service. Resend by default (RESEND_API_KEY): sending, plus reading received
 // mail by id. MAIL_PROVIDER=none stores outgoing mail without sending it (local development).
+import { conf } from "./config";
 export type OutgoingWire = {
   from: string; to: string[]; cc: string[]; bcc: string[]; replyTo?: string; subject: string; text: string; html: string;
   headers: Record<string, string>; attachments: { filename: string; content: Buffer; contentType?: string }[];
 };
 export type Sender = (m: OutgoingWire) => Promise<{ id: string | null; stored_only?: boolean }>;
 
-const resendKey = () => process.env.RESEND_API_KEY?.trim() || "";
-const resend = (path: string, init?: RequestInit) =>
-  fetch(`https://api.resend.com${path}`, { ...init, headers: { Authorization: `Bearer ${resendKey()}`, "content-type": "application/json", ...(init?.headers ?? {}) } });
+const resendKey = () => conf("RESEND_API_KEY");
+const resend = async (path: string, init?: RequestInit) =>
+  fetch(`https://api.resend.com${path}`, { ...init, headers: { Authorization: `Bearer ${await resendKey()}`, "content-type": "application/json", ...(init?.headers ?? {}) } });
 
 const resendSend: Sender = async m => {
-  if (!resendKey()) throw new Error("RESEND_API_KEY is not set");
+  if (!(await resendKey())) throw new Error("no Resend API key is set up (dashboard → Setup)");
   const body = (headers: Record<string, string>) => JSON.stringify({
     from: m.from, to: m.to, cc: m.cc.length ? m.cc : undefined, bcc: m.bcc.length ? m.bcc : undefined, reply_to: m.replyTo, subject: m.subject,
     text: m.text, html: m.html, headers, attachments: m.attachments.map(a => ({ filename: a.filename, content: a.content.toString("base64"), content_type: a.contentType })),
@@ -29,12 +30,12 @@ const noSend: Sender = async () => ({ id: null, stored_only: true });
 let override: Sender | null = null;
 /** Tests swap the sender out. */
 export const setSender = (s: Sender | null) => { override = s; };
-export const sender = (): Sender => override ?? (process.env.MAIL_PROVIDER === "none" ? noSend : resendSend);
-export const sendingOn = () => !!override || process.env.MAIL_PROVIDER === "none" || !!resendKey();
+export const sender = async (): Promise<Sender> => override ?? ((await conf("MAIL_PROVIDER")) === "none" ? noSend : resendSend);
+export const sendingOn = async () => !!override || (await conf("MAIL_PROVIDER")) === "none" || !!(await resendKey());
 
 /** Resend's email.received webhook carries only an id; the message is read back from Resend so a forged webhook can't plant mail. */
 export async function fetchResendReceived(emailId: string) {
-  if (!resendKey()) throw new Error("RESEND_API_KEY is not set");
+  if (!(await resendKey())) throw new Error("no Resend API key is set up");
   const r = await resend(`/emails/receiving/${encodeURIComponent(emailId)}`);
   if (!r.ok) throw new Error(`resend ${r.status}`);
   const m = await r.json() as { from?: string; to?: string[]; cc?: string[]; reply_to?: string[] | string; subject?: string; text?: string; html?: string; message_id?: string;

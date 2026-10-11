@@ -5,8 +5,8 @@ import { needAdmin } from "@/lib/admin";
 import { q } from "@/lib/db";
 import { EVENTS } from "@/lib/webhooks";
 import { HookForm, KeyForm } from "./Forms";
-import { domains } from "@/lib/util";
-import { sendingOn } from "@/lib/provider";
+import { conf, fromServer, getDomains } from "@/lib/config";
+import Setup from "./Setup";
 export const dynamic = "force-dynamic";
 
 async function revoke(f: FormData) { "use server"; needAdmin(); await q("update api_keys set revoked_at = now() where id = $1", [Number(f.get("id"))]); redirect("/settings"); }
@@ -19,16 +19,20 @@ export default async function Settings() {
   const recent = await q<{ id: number; url: string; event: string; status: number | null; attempts: number; error: string | null; created_at: string }>(
     "select d.id, w.url, d.event, d.status, d.attempts, d.error, d.created_at::text created_at from webhook_deliveries d join webhooks w on w.id = d.webhook_id order by d.id desc limit 15");
   const inboxes = await q<{ id: string; address: string }>("select id, address from inboxes where deleted_at is null order by address");
+  const resendKey = fromServer("RESEND_API_KEY") ? "" : await conf("RESEND_API_KEY"), inbound = await conf("INBOUND_SECRET"), provider = await conf("MAIL_PROVIDER");
   const host = headers().get("host") || "your-app.example.com", base = `${host.startsWith("localhost") ? "http" : "https"}://${host}`;
   return <><Nav /><div className="wrap">
     <h1>Keys &amp; webhooks</h1>
     <h2>Setup</h2>
+    <Setup s={{ domains: (await getDomains()).join(", "), domainsServer: fromServer("MAIL_DOMAINS"),
+      resend: fromServer("RESEND_API_KEY") ? "server" : resendKey ? "saved" : "none", resendEnd: resendKey.slice(-4), storeOnly: provider === "none", providerServer: fromServer("MAIL_PROVIDER"),
+      inbound: fromServer("INBOUND_SECRET") ? "server" : inbound ? "saved" : "none" }} />
+    <h2>Where things connect</h2>
     <div className="card small">
-      <div>Domains: {domains().length ? domains().map(d => <span key={d} className="tag">{d}</span>) : <span className="bad">MAIL_DOMAINS not set</span>}</div>
-      <div>Sending: {process.env.MAIL_PROVIDER === "none" ? <span className="dim">stored only (MAIL_PROVIDER=none)</span> : sendingOn() ? <span className="good">on</span> : <span className="bad">off — set RESEND_API_KEY</span>}</div>
-      <div>Receiving (Resend): point Resend's <code>email.received</code> webhook at <code>{base}/api/inbound/resend</code></div>
-      <div>Receiving (any mail server): POST raw email to <code>{base}/api/inbound/raw</code> with <code>Authorization: Bearer $INBOUND_SECRET</code> {process.env.INBOUND_SECRET ? <span className="good">(secret set)</span> : <span className="dim">(set INBOUND_SECRET to turn on)</span>}</div>
-      <div>MCP: <code>{base}/api/mcp</code> with an API key</div>
+      <div><b>Resend receiving:</b> in Resend → Webhooks, add <code>{base}/api/inbound/resend</code> for the <code>email.received</code> event.</div>
+      <div><b>Other mail servers:</b> POST raw email to <code>{base}/api/inbound/raw</code> with <code>Authorization: Bearer &lt;inbound secret&gt;</code>.</div>
+      <div><b>DNS:</b> your domain&apos;s MX record must point at your mail service (Resend shows the exact record).</div>
+      <div><b>Agents:</b> REST at <code>{base}/api/v1</code>, MCP at <code>{base}/api/mcp</code> — both with an API key from below.</div>
     </div>
 
     <h2>API keys</h2>

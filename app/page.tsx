@@ -4,7 +4,7 @@ import Nav from "./Nav";
 import { needAdmin } from "@/lib/admin";
 import { q } from "@/lib/db";
 import { createInbox, ApiError } from "@/lib/mail";
-import { domains } from "@/lib/util";
+import { getDomains } from "@/lib/config";
 export const dynamic = "force-dynamic";
 
 async function make(f: FormData) {
@@ -18,7 +18,7 @@ export default async function Home({ searchParams }: { searchParams: { err?: str
   const rows = await q<{ id: string; address: string; display_name: string; unread: number; total: number; last: string | null }>(`
     select i.id, i.address, i.display_name, count(m.id) filter (where m.direction = 'in' and not m.read)::int unread, count(m.id)::int total, max(m.created_at)::text last
     from inboxes i left join messages m on m.inbox_id = i.id where i.deleted_at is null group by i.id order by max(m.created_at) desc nulls last, i.created_at desc`);
-  const ds = domains();
+  const ds = await getDomains();
   return <><Nav /><div className="wrap">
     <h1>Inboxes</h1>
     {rows.length ? <div className="list">{rows.map(r =>
@@ -34,6 +34,6 @@ export default async function Home({ searchParams }: { searchParams: { err?: str
       <input name="display_name" placeholder="Name shown to people (optional)" />
       {searchParams.err && <div className="bad small">{searchParams.err}</div>}
       <div><button>Create inbox</button></div>
-    </form> : <div className="card bad">Set MAIL_DOMAINS on the server first (see the README).</div>}
+    </form> : <div className="card">First, add your mail domain on the <a href="/settings">Setup</a> screen.</div>}
   </div></>;
 }

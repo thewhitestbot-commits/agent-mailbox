@@ -153,3 +153,18 @@ test("api keys and MCP tools", async () => {
   const s = await TOOLS.find(t => t.name === "send_message")!.run({ inbox: "mcp-made@agents.test", to: ["q@r.co"], subject: "From MCP", text: "hi" }) as { status: string };
   assert.equal(s.status, "sent");
 });
+
+test("setup saved on the dashboard is used when the server has no setting; the server's own setting wins", async () => {
+  const { saveConf, getDomains, conf } = await import("../lib/config");
+  const env = process.env.MAIL_DOMAINS; delete process.env.MAIL_DOMAINS;
+  try {
+    await saveConf("MAIL_DOMAINS", "dash.test");
+    assert.deepEqual(await getDomains(), ["dash.test"]);
+    assert.equal((await mail.createInbox({ username: "from-dash" })).address, "from-dash@dash.test");
+    process.env.MAIL_DOMAINS = "agents.test";
+    assert.deepEqual(await getDomains(), ["agents.test"]);
+    await saveConf("MAIL_DOMAINS", "ignored.test");                 // nothing saved while the server sets it
+    delete process.env.MAIL_DOMAINS;
+    assert.equal(await conf("MAIL_DOMAINS"), "dash.test");
+  } finally { process.env.MAIL_DOMAINS = env; await q("delete from settings"); }
+});

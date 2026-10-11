@@ -11,6 +11,14 @@ curl -X POST https://your-app.example.com/api/v1/inboxes \
 # → { "id": "inb_...", "address": "support-bot@agents.example.com", ... }
 ```
 
+## Fastest setup: let your agent do it
+
+Download this repo, open it with your coding agent (Claude Code, Cursor, Codex …) and say:
+
+> **Set this up for me by following AGENTS.md.**
+
+It runs the install and the deploy, tells you exactly what to click in Resend, and tests a real email end to end.
+
 ## What you get
 
 - **Inboxes on demand.** Pick a username or get a random one. Pass `client_id` and repeat calls return the same inbox, so a retrying agent never makes duplicates.
@@ -34,16 +42,16 @@ npm run dev                     # http://localhost:3222
 
 Or deploy it to Vercel (or anywhere Node runs) with a Postgres URL. The tables create themselves on first use.
 
+Only two settings must be environment variables:
+
 | Variable | What it's for |
 |---|---|
 | `DATABASE_URL` | Any Postgres |
-| `MAIL_DOMAINS` | The domain(s) your inboxes live on, comma-separated |
-| `RESEND_API_KEY` | Sending, plus receiving through Resend |
-| `ADMIN_PASSWORD` | Turns on the dashboard |
-| `INBOUND_SECRET` | Optional: lets any mail server POST raw email to you |
-| `MAIL_PROVIDER=none` | Local testing: outgoing mail is stored, not sent |
+| `ADMIN_PASSWORD` | Your dashboard password |
 
-Sign in to the dashboard, open **Keys & webhooks**, and create an API key. The key is shown once and only a hash is stored.
+Everything else goes on the dashboard's **Setup** screen (Keys & webhooks → Setup): your mail domain, your Resend API key, an inbound secret, and a test mode. The same names (`MAIL_DOMAINS`, `RESEND_API_KEY`, `INBOUND_SECRET`, `MAIL_PROVIDER=none`) also work as environment variables, and those win when both are set.
+
+Sign in to the dashboard, open **Keys & webhooks**, fill in Setup, and create an API key. The key is shown once and only a hash is stored.
 
 ## Receiving mail
 
@@ -110,7 +118,7 @@ createdb mailbox_test
 TEST_DATABASE_URL=postgres://user:pass@localhost:5432/mailbox_test npm test   # wipes that database each run
 ```
 
-The tests cover receiving (with attachments, duplicates and bcc), threading, replies, sending failures, paging, signed and retried webhooks, API keys and the MCP tools.
+The tests cover receiving (with attachments, duplicates and bcc), threading, replies, sending failures, paging, signed and retried webhooks, API keys, the MCP tools, and the dashboard Setup settings.
 
 ## License
 

@@ -20,8 +20,6 @@ export const replySubject = (s: string) => (/^\s*re\s*:/i.test(s) ? s : `Re: ${c
 /** Message-ID lists ("<a@x> <b@y>") → ["<a@x>", "<b@y>"]. */
 export const idList = (v: string | string[] | null | undefined) => (Array.isArray(v) ? v.join(" ") : v || "").match(/<[^<>\s]+>/g) ?? [];
 
-/** The domains inboxes may live on: MAIL_DOMAINS="agents.example.com,mail.example.org". */
-export const domains = () => (process.env.MAIL_DOMAINS || process.env.MAIL_DOMAIN || "").split(",").map(d => d.trim().toLowerCase()).filter(Boolean);
 /** A safe local part: lowercase letters, digits, dots, dashes, underscores; 1–64 chars. */
 export function cleanLocal(s: string) {
   const l = s.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^[.-]+|[.-]+$/g, "").replace(/\.{2,}/g, ".");

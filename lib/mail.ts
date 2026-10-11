@@ -1,7 +1,8 @@
 // Inboxes, threads and messages: everything the API, the MCP tools and the dashboard share.
 import { q, one } from "./db";
-import { addrList, addrOf, cleanLocal, cleanSubject, domains, htmlToText, idList, newId, randomLocal, replySubject, textToHtml } from "./util";
+import { addrList, addrOf, cleanLocal, cleanSubject, htmlToText, idList, newId, randomLocal, replySubject, textToHtml } from "./util";
 import { sender } from "./provider";
+import { getDomains } from "./config";
 import { fire } from "./webhooks";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -15,7 +16,7 @@ const MSG_COLS = "id, inbox_id, thread_id, direction, message_id, in_reply_to, r
 
 // ---------- inboxes ----------
 export async function createInbox(o: { username?: string; domain?: string; display_name?: string; client_id?: string; metadata?: Record<string, unknown> } = {}) {
-  const ds = domains(); if (!ds.length) throw new ApiError(500, "MAIL_DOMAINS is not set on the server");
+  const ds = await getDomains(); if (!ds.length) throw new ApiError(500, "no mail domain is set up yet (dashboard → Setup)");
   const domain = (o.domain || ds[0]).toLowerCase(); if (!ds.includes(domain)) throw new ApiError(400, `domain must be one of: ${ds.join(", ")}`);
   const clientId = o.client_id ? String(o.client_id).slice(0, 200) : null;
   if (clientId) { const had = await one<Inbox>(`select ${INBOX_COLS} from inboxes where client_id = $1 and deleted_at is null`, [clientId]); if (had) return had; }
@@ -177,7 +178,7 @@ async function deliver(ib: Inbox, o: Outgoing, thread: { id: string | null; inRe
   for (const f of files) await q("insert into attachments (id, message_id, filename, content_type, bytes, data) values ($1,$2,$3,$4,$5,$6)", [newId("att"), id, f.filename, f.contentType, f.content.length, f.content]);
   await bump(threadId);
   try {
-    const r = await sender()({ from: ib.display_name ? `"${ib.display_name.replace(/["\\]/g, "")}" <${ib.address}>` : ib.address, to, cc, bcc, subject, text, html: o.html ?? textToHtml(text), headers, attachments: files });
+    const r = await (await sender())({ from: ib.display_name ? `"${ib.display_name.replace(/["\\]/g, "")}" <${ib.address}>` : ib.address, to, cc, bcc, subject, text, html: o.html ?? textToHtml(text), headers, attachments: files });
     await q("update messages set status = $3, provider_id = $2 where id = $1", [id, r.id, r.stored_only ? "stored" : "sent"]);
     const msg = await getMessage(id); await fire("message.sent", ib.id, msg).catch(() => null); return msg;
   } catch (e) {
