@@ -1,0 +1,29 @@
+{
+  "name": "agent-mailbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Email inboxes for AI agents. Create an inbox with one API call, send, receive, reply in threads, get webhooks. Self-hosted, MIT.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev -p 3222",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --test --test-concurrency=1 --import tsx tests/*.test.ts"
+  },
+  "dependencies": {
+    "mailparser": "^3.7.1",
+    "next": "14.2.35",
+    "pg": "^8.13.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.5",
+    "@types/node": "^22",
+    "@types/pg": "^8",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}
